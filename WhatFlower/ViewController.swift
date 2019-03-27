@@ -14,7 +14,6 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
 
     @IBOutlet weak var pickedImage: UIImageView!
     
-    
     let imagePicker = UIImagePickerController()
     
     override func viewDidLoad() {
