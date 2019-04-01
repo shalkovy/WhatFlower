@@ -9,6 +9,8 @@
 import UIKit
 import CoreML
 import Vision
+import Alamofire
+import SwiftyJSON
 
 class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
@@ -20,18 +22,54 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
         super.viewDidLoad()
         
         imagePicker.delegate = self
-        imagePicker.allowsEditing = true
+        imagePicker.allowsEditing = false
         imagePicker.sourceType = .camera
         
     }
     
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-        let userPickedImage = info[UIImagePickerController.InfoKey.editedImage]
         
-        pickedImage.image = userPickedImage as? UIImage
+        if let userPickedImage = info[UIImagePickerController.InfoKey.originalImage]  as? UIImage {
         
+            guard let ciImage = CIImage(image: userPickedImage) else {
+                
+                fatalError("cannot convert to CIImage.")
+                
+            }
+            
+            detect(image: ciImage)
+        
+        pickedImage.image = userPickedImage
+        
+        }
+            
         imagePicker.dismiss(animated: true, completion: nil)
+    }
+    
+    func detect(image: CIImage) {
+        
+        guard let model = try? VNCoreMLModel(for: FlowerClassifier().model) else {
+            
+            fatalError("Cannot import model")
+            
+        }
+        
+        let request = VNCoreMLRequest(model: model) { (reqest, error) in
+            let classification = reqest.results?.first as? VNClassificationObservation
+            
+            self.navigationItem.title = classification?.identifier.capitalized
+        }
+        
+        let handler = VNImageRequestHandler(ciImage: image)
+        
+        do {
+            try handler.perform([request])
+        } catch {
+            print(error)
+        }
+        
+        
     }
     
     @IBAction func camButtonPressed(_ sender: UIBarButtonItem) {
