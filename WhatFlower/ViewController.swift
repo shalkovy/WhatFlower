@@ -11,12 +11,16 @@ import CoreML
 import Vision
 import Alamofire
 import SwiftyJSON
+import SDWebImage
 
 class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
     @IBOutlet weak var pickedImage: UIImageView!
+    @IBOutlet weak var textLable: UILabel!
     
     let imagePicker = UIImagePickerController()
+    
+    let wikipediaURl = "https://en.wikipedia.org/w/api.php"
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -40,7 +44,6 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
             
             detect(image: ciImage)
         
-        pickedImage.image = userPickedImage
         
         }
             
@@ -50,15 +53,16 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
     func detect(image: CIImage) {
         
         guard let model = try? VNCoreMLModel(for: FlowerClassifier().model) else {
-            
             fatalError("Cannot import model")
-            
         }
         
         let request = VNCoreMLRequest(model: model) { (reqest, error) in
-            let classification = reqest.results?.first as? VNClassificationObservation
-            
-            self.navigationItem.title = classification?.identifier.capitalized
+            guard let classification = reqest.results?.first as? VNClassificationObservation else {
+                fatalError("Could not classify image")
+            }
+
+            self.navigationItem.title = classification.identifier.capitalized
+            self.requestInfo(flowerName: classification.identifier)
         }
         
         let handler = VNImageRequestHandler(ciImage: image)
@@ -72,11 +76,43 @@ class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavig
         
     }
     
+    
+    
     @IBAction func camButtonPressed(_ sender: UIBarButtonItem) {
-        
         present(imagePicker, animated: true, completion: nil)
-        
     }
     
+    
+    func requestInfo(flowerName : String) {
+        
+        let parameters : [String:String] = [
+            "format" : "json",
+            "action" : "query",
+            "prop" : "extracts|pageimages",
+            "exintro" : "",
+            "explaintext" : "",
+            "titles" : flowerName,
+            "indexpageids" : "",
+            "redirects" : "1",
+            "pithumbsize" : "500"
+        ]
+
+        Alamofire.request(wikipediaURl, method: .get, parameters: parameters).responseJSON { (response) in
+            if response.result.isSuccess {
+                print(response)
+                
+                let flowerJSON : JSON = JSON(response.result.value!)
+                let pageid = flowerJSON["query"]["pageids"][0].stringValue
+                let flowerDescription = flowerJSON["query"]["pages"][pageid]["extract"].stringValue
+                
+                let flowerImageURL = flowerJSON["query"]["pages"][pageid]["thumbnail"]["source"].stringValue
+                
+                self.pickedImage.sd_setImage(with: URL(string: flowerImageURL))
+                
+                self.textLable.text = flowerDescription
+            }
+            
+        }
+    }
 }
 
